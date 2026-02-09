@@ -994,7 +994,7 @@ const content = await notionClient.getPageContent(pageId);
 
 ### QQ 通知失败
 
-**问题**：`QQ 推送失败`
+**问题**：`QQ 推送失败` 或 `socket hang up`
 
 **原因**：NapCat 未运行或配置错误
 
@@ -1020,13 +1020,32 @@ const content = await notionClient.getPageContent(pageId);
    docker logs napcat  # 查看二维码
    ```
 
+5. 测试 WebSocket 连接
+   ```bash
+   node -e "
+   const WebSocket = require('ws');
+   const ws = new WebSocket('ws://127.0.0.1:3001');
+   ws.on('open', () => {
+     ws.send(JSON.stringify({
+       action: 'get_status'
+     }));
+   });
+   ws.on('message', (data) => console.log('Response:', data.toString()));
+   ws.on('error', (err) => console.error('Error:', err.message));
+   "
+   ```
+
+6. 检查 QQ 机器人是否在线
+   - NapCat 连接失败通常是临时网络问题
+   - 邮件通知会作为备选方案自动发送
+
 ---
 
 ### Notion 同步失败
 
 **问题**：`Notion 页面创建失败`
 
-**原因**：Database ID 或 Token 错误
+**原因**：Database ID 或 Token 错误，或网络连接问题
 
 **解决方案**：
 
@@ -1034,6 +1053,36 @@ const content = await notionClient.getPageContent(pageId);
 2. 确认 Notion Token 有权限
 3. 检查数据库 Schema 配置
 4. 确保 Integration 已添加到 Database
+
+**网络问题（ETIMEDOUT/ECONNREFUSED）**：
+
+从 v1.1.0 开始，Notion 同步失败不会中断整个流程，通知仍会正常发送。
+
+1. 检查网络连接
+   ```bash
+   curl -I https://api.notion.com
+   ```
+
+2. 手动测试 Notion API
+   ```bash
+   node -e "
+   const https = require('https');
+   const options = {
+     hostname: 'api.notion.com',
+     path: '/v1/users/me',
+     headers: {
+       'Authorization': 'Bearer ' + process.env.NOTION_TOKEN,
+       'Notion-Version': '2022-06-28'
+     }
+   };
+   https.get(options, (res) => {
+     console.log('Status:', res.statusCode);
+     res.on('data', (d) => console.log(d.toString()));
+   });
+   "
+   ```
+
+3. 如果持续超时，可能是临时网络中断，稍后重试即可
 
 ---
 
@@ -1065,6 +1114,39 @@ const content = await notionClient.getPageContent(pageId);
    ```bash
    node --max-old-space-size=4096 src/index.js
    ```
+
+---
+
+### Git Clone 失败
+
+**问题**：`克隆失败` 或 `克隆超时`
+
+**原因**：
+- 网络连接不稳定
+- 仓库过大
+- Git 锁文件冲突
+
+**解决方案**：
+
+1. 清理 Git 临时目录
+   ```bash
+   rm -rf /tmp/github-analysis/*
+   ```
+
+2. 手动修复锁文件
+   ```bash
+   find /tmp/github-analysis -name "*.lock" -delete
+   ```
+
+3. 降低并发数
+   ```javascript
+   // 修改 src/utils/concurrent.js
+   maxConcurrency: 2  // 从 3 降到 2
+   ```
+
+4. 系统会自动降级到 README 分析，不会丢失数据
+
+**注意**：深度分析失败时，系统会自动使用 README 分析，确保流程继续执行。
 
 ---
 
