@@ -239,17 +239,30 @@ class TechDailyScheduler {
 
       // Step 5: 同步到 Notion
       this.log('\n[4/7] 同步到 Notion...');
-      const date = new Date().toISOString().split('T')[0];
-      const notionUrl = await this.notionClient.createDailyReport(date, analysisResults);
-      this.log(`  ✓ Notion 页面已创建`);
+      let notionUrl = null;
+      try {
+        const date = new Date().toISOString().split('T')[0];
+        notionUrl = await this.notionClient.createDailyReport(date, analysisResults);
+        this.log(`  ✓ Notion 页面已创建`);
+      } catch (notionError) {
+        this.log(`  ⚠️  Notion 同步失败: ${notionError.message}`);
+        this.log(`  ℹ️  继续执行通知步骤...`);
+        // Notion 失败不中断流程，继续发送通知
+      }
 
       // Step 6: 发送通知
       this.log('\n[5/7] 发送通知...');
-      this.log('  - QQ 群通知...');
-      await this.qqNotifier.sendDailySummary(summary);
-      this.log('  - 邮件通知...');
-      await this.emailNotifier.sendNotification(summary);
-      this.log('  ✓ 通知发送完成');
+      let notificationSuccess = false;
+      try {
+        this.log('  - QQ 群通知...');
+        await this.qqNotifier.sendDailySummary(summary);
+        this.log('  - 邮件通知...');
+        await this.emailNotifier.sendNotification(summary);
+        this.log('  ✓ 通知发送完成');
+        notificationSuccess = true;
+      } catch (notifyError) {
+        this.log(`  ⚠️  通知发送失败: ${notifyError.message}`);
+      }
 
       // 完成
       const duration = ((Date.now() - this.startTime) / 1000).toFixed(2);
@@ -258,7 +271,12 @@ class TechDailyScheduler {
       this.log(`📊 分析了 ${analysisResults.length} 个项目`);
       const deepAnalysisCount = analysisResults.filter(r => r.codeFilesAnalyzed > 0).length;
       this.log(`🔍 深度分析: ${deepAnalysisCount} 个项目`);
-      this.log(`🔗 Notion: ${notionUrl}`);
+      if (notionUrl) {
+        this.log(`🔗 Notion: ${notionUrl}`);
+      } else {
+        this.log(`🔗 Notion: 同步失败（请检查网络连接）`);
+      }
+      this.log(`📢 通知: ${notificationSuccess ? '✅ 发送成功' : '❌ 发送失败'}`);
       this.log('='.repeat(60));
 
     } catch (error) {
