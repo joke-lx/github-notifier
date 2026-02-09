@@ -1,0 +1,31 @@
+log:
+  level: 3
+  showDiff: true
+plugins:
+  server:br020m:
+    port: 5140
+  proxy-agent:telhsu: {}
+  http:gccisp: {}
+  database-sqlite:ey25nq:
+    path: data/koishi.db
+  adapter-onebot:qq:
+    protocol: ws
+    selfId: '3910404195'
+    endpoint: ws://127.0.0.1:3001
+  status:lt3ms1:
+    path: data/status.json
+  /root/github-tech-daily/my-github/koishi-bot/plugins/qa-bot:coefyi:
+    allowedGroups:
+      - '922402862'
+    triggerPrefix: ''
+    requireAt: true
+    glm:
+      apiKey: ${GLM_API_KEY}
+      apiUrl: ${GLM_API_URL}
+      model: glm-4-flash
+      maxTokens: 2000
+      temperature: 0.7
+    notion:
+      token: ${NOTION_TOKEN}
+      databaseId: ${NOTION_DATABASE_ID}
+    projectRoot: /root/github-tech-daily/my-github

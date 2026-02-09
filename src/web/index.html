@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub技术日报 - 管理面板</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      color: #667eea;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+
+    .stat-item:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .stat-value {
+      color: #333;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .log-container {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .log-line {
+      padding: 4px 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-line .timestamp {
+      color: #858585;
+    }
+
+    .log-line.error {
+      color: #f48771;
+    }
+
+    .log-line.success {
+      color: #89d185;
+    }
+
+    .log-line.warn {
+      color: #dcdcaa;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .config-item {
+      margin-bottom: 16px;
+    }
+
+    .config-item label {
+      display: block;
+      color: #666;
+      font-size: 13px;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .config-item input,
+    .config-item select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+    }
+
+    .config-item input:focus,
+    .config-item select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .report-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .report-item {
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .report-item:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .report-date {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .report-count {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .refresh-indicator {
+      display: inline-block;
+      margin-left: 8px;
+      color: #667eea;
+      font-size: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .refresh-indicator.loading::after {
+      content: '↻';
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <h1>🚀 GitHub技术日报 - 管理面板</h1>
+      <p>实时监控、配置管理、日志查看</p>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <button class="btn" onclick="runTest()">▶ 运行测试</button>
+      <button class="btn btn-secondary" onclick="refreshAll()">🔄 刷新数据</button>
+      <button class="btn btn-secondary" onclick="clearCache()">🗑 清空缓存</button>
+    </div>
+
+    <!-- 状态卡片 -->
+    <div class="grid">
+      <!-- 系统状态 -->
+      <div class="card">
+        <h2>⚙️ 系统状态</h2>
+        <div class="stat-item">
+          <span class="stat-label">运行时间</span>
+          <span class="stat-value" id="uptime">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">内存使用</span>
+          <span class="stat-value" id="memory">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Node版本</span>
+          <span class="stat-value" id="nodeVersion">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">平台</span>
+          <span class="stat-value" id="platform">-</span>
+        </div>
+      </div>
+
+      <!-- 配置状态 -->
+      <div class="card">
+        <h2>📋 配置状态 <span class="refresh-indicator" id="configStatus"></span></h2>
+        <div id="configValidation"></div>
+      </div>
+
+      <!-- 缓存统计 -->
+      <div class="card">
+        <h2>💾 缓存统计</h2>
+        <div class="stat-item">
+          <span class="stat-label">缓存项</span>
+          <span class="stat-value" id="cacheSize">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">命中率</span>
+          <span class="stat-value" id="cacheHitRate">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">内存占用</span>
+          <span class="stat-value" id="cacheMemory">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">总请求数</span>
+          <span class="stat-value" id="cacheRequests">-</span>
+        </div>
+      </div>
+
+      <!-- 历史报告 -->
+      <div class="card">
+        <h2>📊 历史报告 <span class="refresh-indicator" id="reportStatus"></span></h2>
+        <div class="stat-item">
+          <span class="stat-label">总报告数</span>
+          <span class="stat-value" id="totalReports">-</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">最新报告</span>
+          <span class="stat-value" id="lastReport">-</span>
+        </div>
+        <div class="report-list" id="reportList"></div>
+      </div>
+    </div>
+
+    <!-- 实时日志 -->
+    <div class="card">
+      <h2>📝 实时日志 <span class="refresh-indicator" id="logStatus"></span></h2>
+      <div class="log-container" id="logContainer">
+        <div class="log-line">正在连接日志服务...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '';
+
+    // 页面加载时初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshAll();
+      // 每5秒自动刷新
+      setInterval(refreshAll, 5000);
+    });
+
+    async function refreshAll() {
+      await Promise.all([
+        getStatus(),
+        getStats(),
+        getConfig(),
+        getReports(),
+        getLogs()
+      ]);
+    }
+
+    async function getStatus() {
+      try {
+        const res = await fetch(API_BASE + '/api/status');
+        const data = await res.json();
+
+        document.getElementById('uptime').textContent = formatUptime(data.uptime);
+        document.getElementById('memory').textContent = formatBytes(data.memory.heapUsed);
+        document.getElementById('nodeVersion').textContent = data.version;
+        document.getElementById('platform').textContent = data.platform;
+      } catch (error) {
+        console.error('获取状态失败:', error);
+      }
+    }
+
+    async function getStats() {
+      try {
+        const res = await fetch(API_BASE + '/api/stats');
+        const data = await res.json();
+
+        // 缓存统计
+        document.getElementById('cacheSize').textContent = `${data.cache.size}/${data.cache.maxSize}`;
+        document.getElementById('cacheHitRate').textContent = data.cache.hitRate;
+        document.getElementById('cacheMemory').textContent = data.cache.memoryUsage;
+        document.getElementById('cacheRequests').textContent = data.cache.hits + data.cache.misses;
+
+        // 历史统计
+        document.getElementById('totalReports').textContent = data.history.totalReports;
+        document.getElementById('lastReport').textContent = data.history.lastReport || '无';
+      } catch (error) {
+        console.error('获取统计失败:', error);
+      }
+    }
+
+    async function getConfig() {
+      try {
+        const res = await fetch(API_BASE + '/api/config');
+        const data = await res.json();
+
+        const container = document.getElementById('configValidation');
+        if (data.validation.valid) {
+          container.innerHTML = '<span class="status-badge status-success">✓ 配置有效</span>';
+        } else {
+          container.innerHTML = `
+            <span class="status-badge status-error">✗ 配置错误</span>
+            <div style="margin-top: 12px;">
+              ${data.validation.errors.map(e => `<div style="color: #721c24; font-size: 13px; margin: 4px 0;">• ${e.message}</div>`).join('')}
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('获取配置失败:', error);
+      }
+    }
+
+    async function getReports() {
+      try {
+        const res = await fetch(API_BASE + '/api/reports');
+        const data = await res.json();
+
+        const list = document.getElementById('reportList');
+        if (data.dailyReports && data.dailyReports.length > 0) {
+          list.innerHTML = data.dailyReports
+            .slice(-10)
+            .reverse()
+            .map(r => `
+              <div class="report-item">
+                <div class="report-date">${r.date}</div>
+                <div class="report-count">${r.repositories?.length || 0} 个项目</div>
+              </div>
+            `).join('');
+        } else {
+          list.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">暂无报告</div>';
+        }
+      } catch (error) {
+        console.error('获取报告失败:', error);
+      }
+    }
+
+    async function getLogs() {
+      try {
+        const res = await fetch(API_BASE + '/api/logs?limit=50');
+        const data = await res.json();
+
+        const container = document.getElementById('logContainer');
+        container.innerHTML = data.logs.map(line => {
+          const className = line.includes('ERROR') || line.includes('失败') || line.includes('✗') ? 'error' :
+                           line.includes('✓') || line.includes('成功') ? 'success' :
+                           line.includes('⚠') || line.includes('WARN') ? 'warn' : '';
+          return `<div class="log-line ${className}">${escapeHtml(line)}</div>`;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+      } catch (error) {
+        console.error('获取日志失败:', error);
+      }
+    }
+
+    async function runTest() {
+      if (!confirm('确定要运行测试任务吗？这将执行完整的日报流程。')) {
+        return;
+      }
+
+      try {
+        await fetch(API_BASE + '/api/test', { method: 'POST' });
+        alert('测试任务已启动，请查看实时日志');
+      } catch (error) {
+        alert('启动测试失败: ' + error.message);
+      }
+    }
+
+    async function clearCache() {
+      if (!confirm('确定要清空所有缓存吗？')) {
+        return;
+      }
+
+      try {
+        await fetch(API_BASE + '/api/cache', { method: 'DELETE' });
+        alert('缓存已清空');
+        getStats();
+      } catch (error) {
+        alert('清空缓存失败: ' + error.message);
+      }
+    }
+
+    // 工具函数
+    function formatUptime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}小时${minutes}分钟`;
+    }
+
+    function formatBytes(bytes) {
+      const mb = bytes / 1024 / 1024;
+      return mb.toFixed(2) + ' MB';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
