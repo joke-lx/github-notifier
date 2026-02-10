@@ -1,0 +1,28 @@
+{
+  "name": "github-tech-daily",
+  "version": "1.0.0",
+  "description": "GitHub前端技术日报自动化系统",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --expose-gc src/index.js",
+    "dev": "node --expose-gc src/index.js --test",
+    "clean": "node src/utils/cleanup.js"
+  },
+  "keywords": [
+    "github",
+    "tech-daily",
+    "notion",
+    "glm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@notionhq/client": "^2.2.3",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^5.2.1",
+    "node-cron": "^3.0.2",
+    "nodemailer": "^8.0.0",
+    "ws": "^8.19.0"
+  }
+}

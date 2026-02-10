@@ -1,0 +1,39 @@
+{
+  "name": "koishi-qa-bot",
+  "version": "1.0.0",
+  "description": "Koishi QQ问答机器人 - GitHub技术日报助手",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start-with-env.js",
+    "start:direct": "koishi start",
+    "dev": "koishi start --watch",
+    "console": "koishi console",
+    "build": "koishi build"
+  },
+  "keywords": [
+    "koishi",
+    "qq-bot",
+    "qa",
+    "glm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@koishijs/plugin-adapter-onebot": "^6.0.2",
+    "@koishijs/plugin-database-sqlite": "^4.7.0",
+    "@koishijs/plugin-http": "^0.6.3",
+    "@koishijs/plugin-proxy-agent": "^0.3.3",
+    "@koishijs/plugin-server": "^3.2.7",
+    "@koishijs/plugin-status": "^7.4.10",
+    "@satorijs/core": "^4.5.2",
+    "axios": "^1.6.0",
+    "koishi": "^4.18.10"
+  },
+  "devDependencies": {
+    "@satorijs/adapter-onebot": "^6.0.2"
+  },
+  "overrides": {
+    "@satorijs/core": "^4.5.2"
+  }
+}

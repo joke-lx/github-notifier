@@ -1,0 +1,12 @@
+{
+  "name": "qa-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "peerDependencies": {
+    "koishi": "^4.17.0"
+  },
+  "dependencies": {
+    "axios": "^1.13.5"
+  }
+}

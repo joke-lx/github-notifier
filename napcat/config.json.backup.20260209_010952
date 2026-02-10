@@ -1,0 +1,11 @@
+{
+  "qq": "你的QQ号",
+  "http": {
+    "enable": true,
+    "host": "0.0.0.0",
+    "port": 3000,
+    "secret": "github_daily_secret",
+    "enableHeart": true,
+    "enablePost": true
+  }
+}

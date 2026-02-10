@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(npm run dev:*)",
+      "Bash(./start.sh:*)",
+      "Bash(docker:*)",
+      "Bash(pm2 logs:*)",
+      "Bash(curl:*)",
+      "Bash(pm2 restart:*)",
+      "Bash(pm2:*)",
+      "WebSearch",
+      "Bash(wget:*)",
+      "Bash(find:*)",
+      "Bash(~/napcat/start.sh)",
+      "Bash(/root/my-github/test-qq-bot.sh:*)",
+      "Bash(/root/my-github/manage-napcat.sh:*)",
+      "Bash(/root/my-github/setup-qq-email.sh:*)",
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(npm view:*)",
+      "Bash(npm search:*)",
+      "Bash(npx koishi:*)",
+      "Bash(koishi:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(strings:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(timeout:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
