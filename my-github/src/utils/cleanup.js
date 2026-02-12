@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync } = require('child_process');
 
 class MemoryCleaner {
@@ -38,25 +39,21 @@ class MemoryCleaner {
   }
 
   /**
-   * 获取系统内存使用情况
+   * 获取系统内存使用情况（跨平台）
    */
   getSystemMemory() {
     try {
-      const memInfo = fs.readFileSync('/proc/meminfo', 'utf8');
-      const lines = memInfo.split('\n');
-
-      const memTotal = parseInt(lines.find(l => l.startsWith('MemTotal'))?.split(/\s+/)[1] || 0) / 1024;
-      const memAvailable = parseInt(lines.find(l => l.startsWith('MemAvailable'))?.split(/\s+/)[1] || 0) / 1024;
-      const memFree = parseInt(lines.find(l => l.startsWith('MemFree'))?.split(/\s+/)[1] || 0) / 1024;
-      const memCached = parseInt(lines.find(l => l.startsWith('Cached'))?.split(/\s+/)[1] || 0) / 1024;
+      const totalMem = os.totalmem() / (1024 * 1024);
+      const freeMem = os.freemem() / (1024 * 1024);
+      const usedMem = totalMem - freeMem;
 
       return {
-        total: Math.round(memTotal),
-        available: Math.round(memAvailable),
-        free: Math.round(memFree),
-        cached: Math.round(memCached),
-        used: Math.round(memTotal - memAvailable),
-        usagePercent: Math.round(((memTotal - memAvailable) / memTotal) * 100)
+        total: Math.round(totalMem),
+        available: Math.round(freeMem),
+        free: Math.round(freeMem),
+        cached: 0,
+        used: Math.round(usedMem),
+        usagePercent: Math.round((usedMem / totalMem) * 100)
       };
     } catch (error) {
       console.warn('无法获取系统内存信息');
@@ -123,7 +120,7 @@ class MemoryCleaner {
    * 清理临时代码目录
    */
   async cleanupTempCode() {
-    const tempDir = process.env.TEMP_CODE_DIR || '/tmp/github-analysis';
+    const tempDir = process.env.TEMP_CODE_DIR || path.join(os.tmpdir(), 'github-analysis');
 
     try {
       if (!fs.existsSync(tempDir)) {
@@ -180,11 +177,13 @@ class MemoryCleaner {
   }
 
   /**
-   * 清理系统缓存
+   * 清理系统缓存（仅 Linux 有效）
    */
   cleanSystemCache() {
+    if (os.platform() !== 'linux') {
+      return;
+    }
     try {
-      // 清理页面缓存、目录项和inode
       execSync('sync && echo 3 > /proc/sys/vm/drop_caches', { stdio: 'ignore' });
       console.log('  系统缓存已清理');
     } catch (error) {

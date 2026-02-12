@@ -211,7 +211,7 @@ export class KnowledgeBase {
   }
 
   /**
-   * Notion 索引 - 获取最近日报
+   * Notion 索引 - 获取最近日报及其内容
    */
   private async indexNotion(): Promise<void> {
     try {
@@ -225,7 +225,7 @@ export class KnowledgeBase {
               direction: 'descending'
             }
           ],
-          page_size: 10
+          page_size: 5
         },
         {
           headers: {
@@ -241,17 +241,87 @@ export class KnowledgeBase {
         const title = page.properties.title?.title?.[0]?.text?.content || '未命名'
         const date = page.properties.date?.date?.start || ''
 
+        // 拉取页面内容 blocks
+        let content = ''
+        try {
+          content = await this.fetchPageBlocks(page.id)
+        } catch (err) {
+          console.error(`拉取 Notion 页面内容失败: ${title}`, err)
+        }
+
         this.notionCache.set(title, {
           type: 'notion',
           source: 'Notion日报',
           title,
           date,
-          url: page.url
+          url: page.url,
+          content
         })
       }
 
+      console.log(`Notion 索引完成: ${pages.length} 个页面（含内容）`)
     } catch (error) {
       console.error('Notion 索引失败:', error)
+    }
+  }
+
+  /**
+   * 拉取 Notion 页面的 blocks 内容并转为纯文本
+   */
+  private async fetchPageBlocks(pageId: string): Promise<string> {
+    const blocks: string[] = []
+    let hasMore = true
+    let startCursor: string | undefined = undefined
+
+    while (hasMore) {
+      const params: any = { page_size: 100 }
+      if (startCursor) params.start_cursor = startCursor
+
+      const response = await axios.get(
+        `https://api.notion.com/v1/blocks/${pageId}/children`,
+        {
+          params,
+          headers: {
+            'Authorization': `Bearer ${this.config.notion.token}`,
+            'Notion-Version': '2022-06-28'
+          }
+        }
+      )
+
+      for (const block of response.data.results) {
+        const text = this.extractBlockText(block)
+        if (text) blocks.push(text)
+      }
+
+      hasMore = response.data.has_more
+      startCursor = response.data.next_cursor
+
+      // 限制拉取量，避免过大
+      if (blocks.join('\n').length > 3000) break
+    }
+
+    return blocks.join('\n')
+  }
+
+  /**
+   * 从 Notion block 中提取纯文本
+   */
+  private extractBlockText(block: any): string {
+    const type = block.type
+    const data = block[type]
+    if (!data?.rich_text) return ''
+
+    const text = data.rich_text.map((t: any) => t.plain_text || '').join('')
+
+    switch (type) {
+      case 'heading_1': return `# ${text}`
+      case 'heading_2': return `## ${text}`
+      case 'heading_3': return `### ${text}`
+      case 'bulleted_list_item': return `- ${text}`
+      case 'numbered_list_item': return `- ${text}`
+      case 'callout': return `> ${text}`
+      case 'code': return `\`\`\`\n${text}\n\`\`\``
+      default: return text
     }
   }
 
@@ -290,10 +360,24 @@ export class KnowledgeBase {
   /**
    * 检索知识
    * 根据问题从多个来源检索相关知识
+   * 优先匹配项目名，支持从日报推送中直接追问
    */
   async retrieve(question: string): Promise<string> {
     const keywords = this.extractKeywords(question)
     const results: string[] = []
+
+    // 0. 优先：精确匹配项目名（支持从日报推送直接追问）
+    const projectMatch = this.findProjectByName(question)
+    if (projectMatch) {
+      results.push('## 项目详细分析\n')
+      results.push(`**${projectMatch.name}** (${projectMatch.date})`)
+      results.push(`语言: ${projectMatch.language} | 星标: ${projectMatch.stars} | 增长: +${projectMatch.growthRate?.toFixed(2)}/天`)
+      if (projectMatch.url) {
+        results.push(`链接: ${projectMatch.url}`)
+      }
+      results.push(`\n${projectMatch.analysis || '暂无详细分析'}`)
+      return results.join('\n')
+    }
 
     // 1. 搜索代码索引
     const codeResults = this.searchIndex(this.codeIndex, keywords)
@@ -332,6 +416,24 @@ export class KnowledgeBase {
     }
 
     return results.join('\n')
+  }
+
+  /**
+   * 通过项目名精确查找（支持 owner/repo 或 repo 名称）
+   */
+  private findProjectByName(question: string): any | null {
+    const q = question.trim().toLowerCase()
+
+    for (const item of this.localHistoryCache) {
+      const name = (item.name || '').toLowerCase()
+      const repoName = name.split('/').pop() || ''
+
+      if (q === name || q === repoName || q.includes(name) || q.includes(repoName)) {
+        return item
+      }
+    }
+
+    return null
   }
 
   /**
@@ -388,22 +490,30 @@ export class KnowledgeBase {
   }
 
   /**
-   * 搜索 Notion
+   * 搜索 Notion（标题 + 内容匹配）
    */
   private searchNotion(keywords: string[]): any[] {
-    const results: any[] = []
+    const results: { data: any; score: number }[] = []
 
     for (const [title, data] of this.notionCache) {
       const titleLower = title.toLowerCase()
+      const contentLower = (data.content || '').toLowerCase()
+      let score = 0
+
       for (const keyword of keywords) {
-        if (titleLower.includes(keyword)) {
-          results.push(data)
-          break
-        }
+        if (titleLower.includes(keyword)) score += 3
+        if (contentLower.includes(keyword)) score += 1
+      }
+
+      if (score > 0) {
+        results.push({ data, score })
       }
     }
 
-    return results.slice(0, 3)
+    return results
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(r => r.data)
   }
 
   /**

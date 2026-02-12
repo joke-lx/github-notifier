@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { promisify } = require('util');
 const { execSync } = require('child_process');
 
@@ -17,7 +18,7 @@ const execAsync = promisify(require('child_process').exec);
 
 class CodeManager {
   constructor() {
-    this.tempDir = process.env.TEMP_CODE_DIR || '/tmp/github-analysis';
+    this.tempDir = process.env.TEMP_CODE_DIR || path.join(os.tmpdir(), 'github-analysis');
     this.maxSizeMB = parseInt(process.env.MAX_REPO_SIZE_MB) || 50;
     this.maxFileCount = parseInt(process.env.MAX_FILE_COUNT) || 500;
     this.maxFileSize = 1024 * 100; // 100KB
@@ -213,35 +214,45 @@ class CodeManager {
 
   /**
    * 获取代码预览
-   * 提取核心部分，跳过注释和空行
+   * 保留 import 语句（理解技术栈依赖），跳过注释和空行
    */
   getCodePreview(content, maxLength) {
     const lines = content.split('\n');
-    const result = [];
+    const imports = [];
+    const codeLines = [];
     let currentLength = 0;
 
     for (const line of lines) {
       const trimmed = line.trim();
 
-      // 跳过空行和单行注释
-      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('/*')) {
+      // 跳过空行和注释
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
         continue;
       }
 
-      // 跳过 import/export 语句（通常不重要）
-      if (trimmed.startsWith('import ') || trimmed.startsWith('export ')) {
+      // 收集 import/require 语句（理解依赖关系）
+      if (trimmed.startsWith('import ') || trimmed.startsWith('const ') && trimmed.includes('require(')) {
+        if (imports.join('\n').length < maxLength * 0.3) {
+          imports.push(line);
+        }
         continue;
       }
 
-      if (currentLength + line.length > maxLength) {
+      // 跳过纯 export default/module.exports 样板
+      if (trimmed === 'export default' || trimmed.startsWith('module.exports')) {
+        continue;
+      }
+
+      if (currentLength + line.length > maxLength - imports.join('\n').length) {
         break;
       }
 
-      result.push(line);
+      codeLines.push(line);
       currentLength += line.length + 1;
     }
 
-    return result.join('\n');
+    // imports 在前，核心代码在后
+    return [...imports, '', ...codeLines].join('\n').trim();
   }
 
   /**
@@ -443,15 +454,15 @@ class CodeManager {
   getDirectorySize(dirPath) {
     let totalSize = 0;
 
-    const calcSize = (path) => {
+    const calcSize = (currentPath) => {
       try {
-        const stats = fs.statSync(path);
+        const stats = fs.statSync(currentPath);
 
         if (stats.isDirectory()) {
-          const files = fs.readdirSync(path);
+          const files = fs.readdirSync(currentPath);
 
           for (const file of files) {
-            calcSize(dirPath + '/' + file);
+            calcSize(path.join(currentPath, file));
           }
         } else {
           totalSize += stats.size;

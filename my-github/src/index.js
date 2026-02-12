@@ -52,6 +52,87 @@ class TechDailyScheduler {
 
     this.startTime = null;
     this.logFile = path.join(__dirname, '../logs/daily.log');
+
+    // 健康检查
+    this.healthFile = path.join(__dirname, '../logs/health.json');
+    this.maxConsecutiveFailures = parseInt(process.env.MAX_CONSECUTIVE_FAILURES) || 3;
+  }
+
+  /**
+   * 读取健康状态
+   */
+  loadHealthState() {
+    try {
+      if (fs.existsSync(this.healthFile)) {
+        return JSON.parse(fs.readFileSync(this.healthFile, 'utf-8'));
+      }
+    } catch (error) {
+      // 文件损坏时重置
+    }
+    return { consecutiveFailures: 0, lastSuccess: null, lastFailure: null, lastError: '' };
+  }
+
+  /**
+   * 保存健康状态（原子写入）
+   */
+  saveHealthState(state) {
+    try {
+      fs.mkdirSync(path.dirname(this.healthFile), { recursive: true });
+      const tmpFile = this.healthFile + '.tmp';
+      fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2));
+      fs.renameSync(tmpFile, this.healthFile);
+    } catch (error) {
+      this.log(`  ⚠️  健康状态保存失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 记录任务成功
+   */
+  recordSuccess() {
+    const state = this.loadHealthState();
+    state.consecutiveFailures = 0;
+    state.lastSuccess = new Date().toISOString();
+    this.saveHealthState(state);
+  }
+
+  /**
+   * 记录任务失败，连续失败超过阈值时发送告警
+   */
+  async recordFailure(error) {
+    const state = this.loadHealthState();
+    state.consecutiveFailures++;
+    state.lastFailure = new Date().toISOString();
+    state.lastError = error.message || String(error);
+    this.saveHealthState(state);
+
+    if (state.consecutiveFailures >= this.maxConsecutiveFailures) {
+      this.log(`⚠️  连续失败 ${state.consecutiveFailures} 次，发送告警通知...`);
+      await this.sendHealthAlert(state);
+    }
+  }
+
+  /**
+   * 发送健康告警通知
+   */
+  async sendHealthAlert(state) {
+    const alertMsg = `⚠️ GitHub 技术日报健康告警\n\n` +
+      `连续失败次数: ${state.consecutiveFailures}\n` +
+      `最近失败时间: ${state.lastFailure}\n` +
+      `最近成功时间: ${state.lastSuccess || '从未成功'}\n` +
+      `错误信息: ${state.lastError}\n\n` +
+      `请检查服务状态和日志。`;
+
+    try {
+      await this.qqNotifier.sendDailySummary(alertMsg);
+    } catch (e) {
+      this.log(`  ⚠️  QQ 告警发送失败: ${e.message}`);
+    }
+    try {
+      await this.emailNotifier.sendNotification(alertMsg);
+    } catch (e) {
+      this.log(`  ⚠️  邮件告警发送失败: ${e.message}`);
+    }
   }
 
   /**
@@ -78,8 +159,25 @@ class TechDailyScheduler {
 
       // Step 2: 采集数据
       this.log('\n[1/6] 采集 GitHub 热门仓库...');
-      const trendingRepos = await this.githubCollector.getTrendingRepos();
+      let trendingRepos = await this.githubCollector.getTrendingRepos();
       this.log(`  ✓ 找到 ${trendingRepos.length} 个热门仓库`);
+
+      // 冷却期过滤：排除最近 N 天已推送过的项目
+      const cooldownDays = parseInt(process.env.COOLDOWN_DAYS) || 3;
+      const recentNames = new Set();
+      for (let d = 1; d <= cooldownDays; d++) {
+        const prev = this.dataAnalyzer.getPreviousDayReports(d);
+        prev.forEach(r => recentNames.add(r.name));
+      }
+      if (recentNames.size > 0) {
+        const before = trendingRepos.length;
+        trendingRepos = trendingRepos.filter(r => !recentNames.has(r.full_name));
+        const filtered = before - trendingRepos.length;
+        if (filtered > 0) {
+          this.log(`  ✓ 冷却期过滤: 排除 ${filtered} 个近 ${cooldownDays} 天已推送项目`);
+        }
+      }
+
       trendingRepos.forEach(repo => {
         this.log(`    - ${repo.full_name}: ${repo.stargazers_count}★ (+${repo.growthRate.toFixed(2)}/天)`);
       });
@@ -279,9 +377,16 @@ class TechDailyScheduler {
       this.log(`📢 通知: ${notificationSuccess ? '✅ 发送成功' : '❌ 发送失败'}`);
       this.log('='.repeat(60));
 
+      // 记录成功
+      this.recordSuccess();
+
     } catch (error) {
       this.log(`\n✗ 任务执行失败: ${error.message}`);
       this.log(error.stack);
+
+      // 记录失败并检查是否需要告警
+      await this.recordFailure(error);
+
       throw error;
     } finally {
       // 最终清理

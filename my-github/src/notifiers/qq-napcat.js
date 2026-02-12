@@ -151,6 +151,9 @@ class QQNapcatNotifier {
       summary += '...\n\n📖 完整报告请查看 Notion 知识库';
     }
 
+    // 追加交互提示，引导用户通过 QA Bot 追问
+    summary += '\n\n💬 回复 @机器人 + 项目名 可查看详细分析';
+
     return `\n${summary}\n`;
   }
 }

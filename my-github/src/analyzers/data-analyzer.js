@@ -39,7 +39,7 @@ class DataAnalyzer {
   }
 
   /**
-   * 保存历史数据
+   * 保存历史数据（原子写入：先写临时文件再 rename，防止写入中断导致数据损坏）
    */
   saveHistory() {
     try {
@@ -47,7 +47,9 @@ class DataAnalyzer {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.historyFile, JSON.stringify(this.history, null, 2));
+      const tmpFile = this.historyFile + '.tmp';
+      fs.writeFileSync(tmpFile, JSON.stringify(this.history, null, 2));
+      fs.renameSync(tmpFile, this.historyFile);
       this.logger.debug('历史数据已保存');
     } catch (error) {
       this.logger.error('保存历史数据失败', error);
